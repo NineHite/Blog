@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/admin/comment")
-public class CommentApi {
+public class CommentAdminApi {
 
     /**
      * 添加评论

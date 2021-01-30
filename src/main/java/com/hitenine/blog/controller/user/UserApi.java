@@ -8,6 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.awt.*;
+import java.io.IOException;
 
 /**
  * <p>
@@ -47,6 +50,17 @@ public class UserApi {
      */
     @PostMapping
     public ResponseResult register() {
+        // 1.检查当前用户是否已经注册（可以前端异步操作，双重检测！）
+        // 2.检查邮箱格式是否正确
+        // 3.检查邮箱是否注册
+        // 4.检查邮箱验证码是否正确
+        // 5.检查图灵验证码是否正确
+        // 达到注册条件
+        // 6.密码进行加密
+        // 7.补全数据
+        // 包括：注册IP，登录IP，角色，头像，创建时间，更新时间（mp处理器自动添加），
+        // 8.保存到数据库
+        // 9.返回结果
         return null;
     }
 
@@ -65,17 +79,26 @@ public class UserApi {
     /**
      * 获取图灵验证码
      *
-     * @return
+     * @param response
+     * @param captchaKey 以13位以上的时间秒数来确定每个用户的验证码（感觉有些bug）
+     * @throws IOException
+     * @throws FontFormatException
      */
     @GetMapping("/captcha")
-    public ResponseResult getCaptcha() {
-        return null;
+    public void getCaptcha(HttpServletResponse response, @RequestParam("captcha_key") String captchaKey) {
+        User user = new User();
+        try {
+            userService.getCaptcha(response, captchaKey);
+        } catch (Exception e) {
+            log.error(e.toString());
+            e.printStackTrace();
+        }
     }
 
     @GetMapping("/verify_code")
-    public ResponseResult<String> sendVerifyCode(@RequestParam("email") String emailAddress) {
+    public ResponseResult sendVerifyCode(HttpServletRequest request, @RequestParam("email") String emailAddress) {
         log.info("email == > " + emailAddress);
-        return ResponseResult.SUCCESS().setData(emailAddress);
+        return userService.sendEmail(request, emailAddress);
     }
 
     /**

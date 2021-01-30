@@ -1,8 +1,13 @@
 package com.hitenine.blog.controller;
 
+import com.hitenine.blog.response.ResponseResult;
+import com.hitenine.blog.utils.Constants;
+import com.hitenine.blog.utils.RedisUtils;
 import com.wf.captcha.SpecCaptcha;
 import com.wf.captcha.base.Captcha;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,7 +24,17 @@ import javax.servlet.http.HttpServletResponse;
 @RequestMapping("/test")
 public class TestController {
 
-    @RequestMapping("/captcha")
+    @Autowired
+    private RedisUtils redisUtils;
+
+    @GetMapping("/hello_world")
+    public ResponseResult helloworld() {
+        log.info("hello world...");
+        String value = (String) redisUtils.get(Constants.User.KEY_CAPTCHA_CONTENT + "123456");
+        return ResponseResult.SUCCESS().setData(value);
+    }
+
+    @GetMapping("/captcha")
     public void captcha(HttpServletRequest request, HttpServletResponse response) throws Exception {
         // 设置请求头为输出图片类型
         response.setContentType("image/gif");
@@ -39,8 +54,9 @@ public class TestController {
         String content = specCaptcha.text().toLowerCase();
         log.info("captcha content == > " + content);
         // 验证码存入session
-        request.getSession().setAttribute("captcha", content); // 前后端分离保存到redis中
-
+        // request.getSession().setAttribute("captcha", content); // 前后端分离保存到redis中
+        //保存redis中 10分钟有效
+        redisUtils.set(Constants.User.KEY_CAPTCHA_CONTENT + "123456", content, 60 * 10);
         // 输出图片流
         specCaptcha.out(response.getOutputStream());
     }
