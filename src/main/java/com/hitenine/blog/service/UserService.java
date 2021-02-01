@@ -55,4 +55,15 @@ public interface UserService extends IService<User> {
      * @return
      */
     ResponseResult register(HttpServletRequest request, User user, String emailCode, String captchaCode, String captchaKey);
+
+    /**
+     *
+     * @param response
+     * @param request
+     * @param captchaKey
+     * @param captcha
+     * @param user
+     * @return
+     */
+    ResponseResult doLogin(HttpServletRequest request, HttpServletResponse response, String captchaKey, String captcha, User user);
 }

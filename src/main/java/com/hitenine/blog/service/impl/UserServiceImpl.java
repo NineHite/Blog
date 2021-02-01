@@ -305,4 +305,41 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 9.返回结果
         return ResponseResult.SUCCESS(ResponseState.JOIN_IN_SUCCESS);
     }
+
+    @Override
+    public ResponseResult doLogin(HttpServletRequest request,
+                                  HttpServletResponse response,
+                                  String captchaKey,
+                                  String captcha,
+                                  User user) {
+        // captcha因为它是路径不能为空，所以captchaValue可能为空
+        String captchaValue = (String) redisUtils.get(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey);
+        if (!captcha.equals(captchaValue)) {
+            ResponseResult.FAILED("图灵验证码不正确");
+        }
+        // 有可能是用户名，也有可能是邮箱 让下面来做判断
+        String userName = user.getUserName();
+        if (StringUtils.isEmpty(userName)) {
+            ResponseResult.FAILED("用户名不能为空");
+        }
+        String password = user.getPassword();
+        if (StringUtils.isEmpty(password)) {
+            ResponseResult.FAILED("密码不能为空");
+        }
+        User userFromDb = userMapper.selectOne(new QueryWrapper<User>().eq("user_name", userName));
+        if (userFromDb == null) {
+            userFromDb = userMapper.selectOne(new QueryWrapper<User>().eq("email", userName));
+        }
+        if (userFromDb == null) {
+            ResponseResult.FAILED("用户名或密码错误");
+        }
+        // 用户存在，对比密码
+        boolean matches = bCryptPasswordEncoder.matches(password, userFromDb.getPassword());
+        if (!matches) {
+            ResponseResult.FAILED("用户名或密码错误");
+        }
+        // 密码正确
+
+        return null;
+    }
 }
