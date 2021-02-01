@@ -28,9 +28,9 @@ public interface UserService extends IService<User> {
 
     /**
      * 获取验证码：
-     *             1.根据每个用户带来的 captcha_key 来确定用户
-     *             2.随机验证码类型：gif、算数、字母数字
-     *             3.随机验证码字体
+     * 1.根据每个用户带来的 captcha_key 来确定用户
+     * 2.随机验证码类型：gif、算数、字母数字
+     * 3.随机验证码字体
      *
      * @param response
      * @param captchaKey
@@ -42,8 +42,17 @@ public interface UserService extends IService<User> {
      * 发送邮箱验证码，避免邮箱轰炸
      *
      * @param request
+     * @param type 类型：注册、找回密码、修改邮箱
      * @param emailAddress
      * @return
      */
-    ResponseResult sendEmail(HttpServletRequest request, String emailAddress);
+    ResponseResult sendEmail(HttpServletRequest request, String type, String emailAddress);
+
+    /**
+     * 用户注册
+     *
+     * @param user
+     * @return
+     */
+    ResponseResult register(HttpServletRequest request, User user, String emailCode, String captchaCode, String captchaKey);
 }

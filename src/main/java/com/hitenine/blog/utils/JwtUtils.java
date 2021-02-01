@@ -9,24 +9,25 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * JWT
+ * Json Web Token 工具类
  *
  * @author Hitenine
  */
-public class JwtUtil {
+public class JwtUtils {
 
     //盐值
     private static String key = "ad128433d8e3356e7024009bf6add2ab";
 
     //单位是毫秒
-    private static long ttl = Constants.TimeValueInMillions.HOUR_2;//2个小时
+    // private static long ttl = Constants.TimeValueInMillions.HOUR_2;//2个小时
+    private static long ttl = 2 * 60 * 60 * 1000;//2个小时
 
     public String getKey() {
         return key;
     }
 
     public void setKey(String key) {
-        this.key = key;
+        JwtUtils.key = key;
     }
 
     public long getTtl() {
@@ -34,7 +35,7 @@ public class JwtUtil {
     }
 
     public void setTtl(long ttl) {
-        this.ttl = ttl;
+        JwtUtils.ttl = ttl;
     }
 
     /**
@@ -43,13 +44,18 @@ public class JwtUtil {
      * @return
      */
     public static String createToken(Map<String, Object> claims, long ttl) {
-        JwtUtil.ttl = ttl;
+        JwtUtils.ttl = ttl;
         return createToken(claims);
     }
 
-
+    /**
+     *
+     * @param userId
+     * @param ttl 单位秒
+     * @return
+     */
     public static String createRefreshToken(String userId, long ttl) {
-        long nowMillis = System.currentTimeMillis();
+        long nowMillis = System.currentTimeMillis() * 1000;
         Date now = new Date(nowMillis);
         JwtBuilder builder = Jwts.builder().setId(userId)
                 .setIssuedAt(now)

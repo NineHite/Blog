@@ -21,6 +21,10 @@ public class ResponseResult<T> {
         return responseResult;
     }
 
+    public static <T> ResponseResult<T> SUCCESS(ResponseState responseState) {
+        return new ResponseResult(responseState);
+    }
+
     public static <T> ResponseResult<T> SUCCESS(ResponseState responseState, T data) {
         return new ResponseResult(ResponseState.SUCCESS).setData(data);
     }

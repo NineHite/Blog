@@ -7,6 +7,7 @@ import com.hitenine.blog.dao.UserMapper;
 import com.hitenine.blog.pojo.Setting;
 import com.hitenine.blog.pojo.User;
 import com.hitenine.blog.response.ResponseResult;
+import com.hitenine.blog.response.ResponseState;
 import com.hitenine.blog.service.UserService;
 import com.hitenine.blog.utils.*;
 import com.wf.captcha.ArithmeticCaptcha;
@@ -164,8 +165,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Autowired
     private TaskService taskService;
 
+    /**
+     * 发送邮件
+     * <p>
+     * 使用场景：注册、找回密码、修改邮箱（新的邮箱）
+     * 注册(register)：如果已经注册过了：该邮箱已经被注册
+     * 找回密码(forget)：如果已经注册过了：该邮箱没有被注册
+     * 修改邮箱（新的邮箱）(update)：如果已经注册过了：该邮箱已经注册
+     * </p>
+     */
     @Override
-    public ResponseResult sendEmail(HttpServletRequest request, String emailAddress) {
+    public ResponseResult sendEmail(HttpServletRequest request, String type, String emailAddress) {
+        if (StringUtils.isEmpty(emailAddress)) {
+            return ResponseResult.FAILED("邮箱地址不可以为空");
+        }
+        // 根据类型，查询邮箱是否存在
+        User userByEmail = userMapper.selectOne(new QueryWrapper<User>().eq("email", emailAddress));
+        if ("register".equals(type) || "update".equals(type)) {
+            if (userByEmail != null) {
+                return ResponseResult.FAILED("该邮箱已经被注册");
+            }
+        } else if ("forget".equals(type)) {
+            if (userByEmail == null) {
+                return ResponseResult.FAILED("该邮箱没有被注册");
+            }
+        }
         // 1.防止暴力发送，就是不断发送：同一个邮箱，间隔要超过30秒发一次，1小时内同一个IP最多只能发10次（如果是短信，最多只能发5次）
         String remoteAddr = request.getRemoteAddr();
         log.info("sendEmail == > ip == > " + remoteAddr);
@@ -206,7 +230,79 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 间隔三十秒
         redisUtils.set(Constants.User.KEY_EMAIL_SEND_ADDRESS + emailAddress, "true", 30);
         // 保存code，10分钟内有效
-        redisUtils.set(Constants.User.KEY_EMAIL_CONTENT, String.valueOf(code), 10 * 60);
+        redisUtils.set(Constants.User.KEY_EMAIL_CONTENT + emailAddress, String.valueOf(code), 10 * 60);
         return ResponseResult.SUCCESS("验证码发送成功");
+    }
+
+    @Override
+    public ResponseResult register(HttpServletRequest request, User user, String emailCode, String captchaCode, String captchaKey) {
+        // 1.检查当前用户是否已经注册（可以前端异步操作，双重检测！）
+        String userName = user.getUserName();
+        if (StringUtils.isEmpty(user)) {
+            return ResponseResult.FAILED("用户名不能为空");
+        }
+        // 从数据库中检查是否存在
+        User userByUserName = userMapper.selectOne(new QueryWrapper<User>().eq("user_name", userName));
+        if (userByUserName != null) {
+            return ResponseResult.FAILED("用户名已存在");
+        }
+        // 2.检查邮箱格式是否正确
+        String email = user.getEmail();
+        if (StringUtils.isEmpty(user)) {
+            return ResponseResult.FAILED("邮箱地址不能为空");
+        }
+        if (!TextUtils.isEmailAddressOk(email)) {
+            return ResponseResult.FAILED("邮箱格式不正确");
+        }
+        // 3.检查邮箱是否注册
+        User userByEmail = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
+        if (userByEmail != null) {
+            return ResponseResult.FAILED("邮箱地址已存在");
+        }
+        // 4.检查邮箱验证码是否正确
+        String verifyCode = (String) redisUtils.get(Constants.User.KEY_EMAIL_CONTENT + email);
+        if (StringUtils.isEmpty(verifyCode)) {
+            return ResponseResult.FAILED("邮箱验证已过期");
+        }
+        if (!verifyCode.equals(emailCode)) {
+            return ResponseResult.FAILED("邮箱验证码不正确");
+        } else {
+            // 正确的话删除redis中的邮箱验证码
+            redisUtils.del(Constants.User.KEY_EMAIL_CONTENT + email);
+        }
+        // 5.检查图灵验证码是否正确
+        String captchaVerifyCode = (String) redisUtils.get(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey);
+        if (StringUtils.isEmpty(captchaVerifyCode)) {
+            return ResponseResult.FAILED("图灵验证码已过期");
+        }
+        if (!captchaVerifyCode.equals(captchaCode)) {
+            // 正确的话删除redis中的图灵验证码
+            return ResponseResult.FAILED("图灵验证码不正确");
+        } else {
+            // 正确的话删除redis中的邮箱验证码
+            redisUtils.del(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey);
+        }
+        // 达到注册条件
+        // 6.密码进行加密
+        String password = user.getPassword();
+        if (StringUtils.isEmpty(password)) {
+            return ResponseResult.FAILED("密码不可以为空");
+        }
+        user.setPassword(bCryptPasswordEncoder.encode(password));
+        // 7.补全数据
+        // 包括：注册IP，登录IP，角色，头像，创建时间，更新时间（mp处理器自动添加），
+        String remoteAddr = request.getRemoteAddr();
+        user.setRegIp(remoteAddr);
+        user.setLoginIp(remoteAddr);
+        // LocalDateTime localDateTime = LocalDateTime.now();
+        // user.setCreateTime(localDateTime);
+        // user.setUpdateTime(localDateTime);
+        user.setAvatar(Constants.User.DEFAULT_AVATAR);
+        user.setRoles(Constants.User.ROLE_NORMAL);
+        user.setState(Constants.User.DEFAULT_STATE);
+        // 8.保存到数据库
+        userMapper.insert(user);
+        // 9.返回结果
+        return ResponseResult.SUCCESS(ResponseState.JOIN_IN_SUCCESS);
     }
 }

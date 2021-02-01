@@ -49,19 +49,12 @@ public class UserApi {
      * @return
      */
     @PostMapping
-    public ResponseResult register() {
-        // 1.检查当前用户是否已经注册（可以前端异步操作，双重检测！）
-        // 2.检查邮箱格式是否正确
-        // 3.检查邮箱是否注册
-        // 4.检查邮箱验证码是否正确
-        // 5.检查图灵验证码是否正确
-        // 达到注册条件
-        // 6.密码进行加密
-        // 7.补全数据
-        // 包括：注册IP，登录IP，角色，头像，创建时间，更新时间（mp处理器自动添加），
-        // 8.保存到数据库
-        // 9.返回结果
-        return null;
+    public ResponseResult register(HttpServletRequest request,
+                                   @RequestBody User user,
+                                   @RequestParam("verify_code") String emailCode,
+                                   @RequestParam("captcha_code") String captchaCode,
+                                   @RequestParam("captcha_key") String captchaKey) {
+        return userService.register(request, user, emailCode, captchaCode, captchaKey);
     }
 
     /**
@@ -95,10 +88,25 @@ public class UserApi {
         }
     }
 
+    /**
+     * 发送邮件
+     * <p>
+     * 使用场景：注册、找回密码、修改邮箱（新的邮箱）
+     * 注册：如果已经注册过了：该邮箱已经注册
+     * 找回密码：如果已经注册过了：该邮箱没有被注册
+     * 修改邮箱（新的邮箱）：如果已经注册过了：该邮箱已经注册
+     * </p>
+     *
+     * @param request
+     * @param emailAddress
+     * @return
+     */
     @GetMapping("/verify_code")
-    public ResponseResult sendVerifyCode(HttpServletRequest request, @RequestParam("email") String emailAddress) {
+    public ResponseResult sendVerifyCode(HttpServletRequest request,
+                                         @RequestParam("type") String type,
+                                         @RequestParam("email") String emailAddress) {
         log.info("email == > " + emailAddress);
-        return userService.sendEmail(request, emailAddress);
+        return userService.sendEmail(request, type, emailAddress);
     }
 
     /**
