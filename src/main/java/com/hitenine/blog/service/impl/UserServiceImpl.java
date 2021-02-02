@@ -2,8 +2,10 @@ package com.hitenine.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hitenine.blog.dao.RefreshTokenMapper;
 import com.hitenine.blog.dao.SettingMapper;
 import com.hitenine.blog.dao.UserMapper;
+import com.hitenine.blog.pojo.RefreshToken;
 import com.hitenine.blog.pojo.Setting;
 import com.hitenine.blog.pojo.User;
 import com.hitenine.blog.response.ResponseResult;
@@ -19,11 +21,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -44,6 +48,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private SettingMapper settingMapper;
+
+    @Autowired
+    private RefreshTokenMapper refreshTokenMapper;
 
     @Autowired
     private BCryptPasswordEncoder bCryptPasswordEncoder;
@@ -157,7 +164,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String content = targetCaptcha.text().toLowerCase();
         log.info("captcha content == > " + content);
         //保存redis中 10分钟有效
-        redisUtils.set(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey, content, 10 * 60);
+        redisUtils.set(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey, content, 10 * Constants.TimeValue.MIN);
         // 输出图片流
         targetCaptcha.out(response.getOutputStream());
     }
@@ -226,11 +233,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         ipSendTime++;
         // 1个小时有效期
-        redisUtils.set(Constants.User.KEY_EMAIL_SEND_IP + remoteAddr, ipSendTime, 60 * 60);
+        redisUtils.set(Constants.User.KEY_EMAIL_SEND_IP + remoteAddr, ipSendTime, Constants.TimeValue.HOUR);
         // 间隔三十秒
         redisUtils.set(Constants.User.KEY_EMAIL_SEND_ADDRESS + emailAddress, "true", 30);
         // 保存code，10分钟内有效
-        redisUtils.set(Constants.User.KEY_EMAIL_CONTENT + emailAddress, String.valueOf(code), 10 * 60);
+        redisUtils.set(Constants.User.KEY_EMAIL_CONTENT + emailAddress, String.valueOf(code), 10 * Constants.TimeValue.MIN);
         return ResponseResult.SUCCESS("验证码发送成功");
     }
 
@@ -331,7 +338,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             userFromDb = userMapper.selectOne(new QueryWrapper<User>().eq("email", userName));
         }
         if (userFromDb == null) {
-            ResponseResult.FAILED("用户名或密码错误");
+            return ResponseResult.FAILED("用户名或密码错误");
         }
         // 用户存在，对比密码
         boolean matches = bCryptPasswordEncoder.matches(password, userFromDb.getPassword());
@@ -339,7 +346,34 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             ResponseResult.FAILED("用户名或密码错误");
         }
         // 密码正确
-
-        return null;
+        // 判断用户状态，如果是非正常，则返回结果
+        if (!Constants.User.DEFAULT_STATE.equals(userFromDb.getState())) {
+            return ResponseResult.FAILED("当前账号已被禁止");
+        }
+        // 生成token
+        Map<String, Object> claims = ClaimsUtils.userToClaims(userFromDb);
+        // 默认有效两个小时
+        String token = JwtUtils.createToken(claims);
+        // 返回token的md5值，token保存在redis中
+        // 前端访问的时候携带md5Key，从redis中获取token
+        String tokenKey = DigestUtils.md5DigestAsHex(token.getBytes());
+        // 保存token到redis里，有效时期为2个小时，key是token
+        redisUtils.set(Constants.User.KEY_TOKEN + tokenKey, token, Constants.TimeValue.HOUR_2);
+        // 把tokenKey写到cookies里
+        // 这个要动态获取，可以从request里获取
+        CookieUtils.setUpCookie(response, Constants.User.COOKIE_TOKEN_KEY, tokenKey);
+        // TODO:生成refreshToken
+        String refreshTokenValue = JwtUtils.createRefreshToken(userFromDb.getId(), Constants.TimeValue.MONTH);// 一个月有效
+        // TODO: 保存数据库里
+        // refreshToken tokenKey 用户id 创建更新时间
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setId(idWorker.nextId() + "");
+        refreshToken.setRefreshToken(refreshTokenValue);
+        refreshToken.setUserId(userFromDb.getId());
+        refreshToken.setTokenKey(tokenKey);
+        refreshToken.setCreateTime(LocalDateTime.now());
+        refreshToken.setUpdateTime(LocalDateTime.now());
+        refreshTokenMapper.insert(refreshToken);
+        return ResponseResult.SUCCESS("登录成功");
     }
 }

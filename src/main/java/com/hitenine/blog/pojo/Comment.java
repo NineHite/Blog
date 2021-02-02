@@ -1,5 +1,8 @@
 package com.hitenine.blog.pojo;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -23,6 +26,7 @@ public class Comment implements Serializable {
     /**
      * ID
      */
+    @TableId
     private String id;
 
     /**
@@ -58,16 +62,18 @@ public class Comment implements Serializable {
     /**
      * 状态（0表示删除，1表示正常）
      */
-    private String state;
+    private String state = "1";
 
     /**
      * 创建时间
      */
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
     /**
      * 更新时间
      */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
 }

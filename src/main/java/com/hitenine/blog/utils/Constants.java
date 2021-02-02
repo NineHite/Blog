@@ -15,9 +15,24 @@ public interface Constants {
         String KEY_EMAIL_CONTENT = "key_email_content_";
         String KEY_EMAIL_SEND_IP = "key_email_send_ip_";
         String KEY_EMAIL_SEND_ADDRESS = "key_email_send_address_";
+        String KEY_TOKEN = "key_token_";
+        String COOKIE_TOKEN_KEY = "sob_blog_token";
     }
 
     interface Setting {
         String MANAGER_ACCOUNT_INIT_STATE = "manager_account_init_state";
+    }
+
+    /**
+     * 单位是秒
+     */
+    interface TimeValue {
+        int MIN = 60;
+        int HOUR = 60 * MIN;
+        int HOUR_2 = 60 * MIN * 2;
+        int DAY = 24 * HOUR;
+        int WEEK = 7 * DAY;
+        int MONTH = 30 * DAY;
+        int YEAR = 365 * DAY;
     }
 }

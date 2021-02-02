@@ -19,8 +19,8 @@ public class JwtUtils {
     private static String key = "ad128433d8e3356e7024009bf6add2ab";
 
     //单位是毫秒
-    // private static long ttl = Constants.TimeValueInMillions.HOUR_2;//2个小时
-    private static long ttl = 2 * 60 * 60 * 1000;//2个小时
+    private static long ttl = Constants.TimeValue.HOUR_2;//2个小时
+    // private static long ttl = 2 * 60 * 60 * 1000;//2个小时
 
     public String getKey() {
         return key;
@@ -72,7 +72,7 @@ public class JwtUtils {
      */
     public static String createToken(Map<String, Object> claims) {
 
-        long nowMillis = System.currentTimeMillis();
+        long nowMillis = System.currentTimeMillis() * 1000;
         Date now = new Date(nowMillis);
         JwtBuilder builder = Jwts.builder()
                 .setIssuedAt(now)

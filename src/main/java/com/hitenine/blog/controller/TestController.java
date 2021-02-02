@@ -1,18 +1,20 @@
 package com.hitenine.blog.controller;
 
+import com.hitenine.blog.dao.CommentMapper;
+import com.hitenine.blog.pojo.Comment;
+import com.hitenine.blog.pojo.User;
 import com.hitenine.blog.response.ResponseResult;
-import com.hitenine.blog.utils.Constants;
-import com.hitenine.blog.utils.RedisUtils;
+import com.hitenine.blog.utils.*;
 import com.wf.captcha.SpecCaptcha;
 import com.wf.captcha.base.Captcha;
+import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.time.LocalDateTime;
 
 /**
  * @author Hitenine
@@ -25,7 +27,13 @@ import javax.servlet.http.HttpServletResponse;
 public class TestController {
 
     @Autowired
+    private CommentMapper commentMapper;
+
+    @Autowired
     private RedisUtils redisUtils;
+
+    @Autowired
+    private IdWorker idWorker;
 
     @GetMapping("/hello_world")
     public ResponseResult helloworld() {
@@ -61,4 +69,44 @@ public class TestController {
         specCaptcha.out(response.getOutputStream());
     }
 
+    @PostMapping("/comment")
+    public ResponseResult testComment(@RequestBody Comment comment, HttpServletRequest request) {
+        String content = comment.getContent();
+        log.info("comment content == > " + content);
+        // 还得知道是谁的评论，对这个评论，身份确定
+        String tokenKey = CookieUtils.getCookie(request, Constants.User.COOKIE_TOKEN_KEY);
+        if (tokenKey == null) {
+            return ResponseResult.FAILED("账号未登录");
+        }
+        String token = (String) redisUtils.get(Constants.User.KEY_TOKEN + tokenKey);
+        if (token == null) {
+            // 空的话就是过期了，但有可能登录过了，可以查看refreshToken
+            // TODO: 2021/2/2
+            // 如果可以查看refreshToken不存在或者已经过期
+            // 提示用户未登录
+        }
+
+        // 已经登录，解析token
+        Claims claims = null;
+        try {
+            claims = JwtUtils.parseJWT(token);
+        } catch (Exception e) {
+            // 过期了，去查refreshToken...
+            // TODO
+            // 如果refreshToken不存在或者已经过期，告诉用户未登录
+            return ResponseResult.FAILED("账户未登录");
+        }
+        if (claims == null) {
+            return ResponseResult.FAILED("账户未登录");
+        }
+        User user = ClaimsUtils.claimsToUser(claims);
+        comment.setUserId(user.getId());
+        comment.setUserAvatar(user.getAvatar());
+        comment.setUserName(user.getUserName());
+        comment.setCreateTime(LocalDateTime.now());
+        comment.setUpdateTime(LocalDateTime.now());
+        // comment.setId(idWorker.nextId() + ""); // mp默认雪花算法自动生成ID
+        commentMapper.insert(comment);
+        return ResponseResult.SUCCESS("评论成功");
+    }
 }
