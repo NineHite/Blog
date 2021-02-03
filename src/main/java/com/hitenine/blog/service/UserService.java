@@ -66,4 +66,6 @@ public interface UserService extends IService<User> {
      * @return
      */
     ResponseResult doLogin(HttpServletRequest request, HttpServletResponse response, String captchaKey, String captcha, User user);
+
+    User checkUser(HttpServletRequest request, HttpServletResponse response);
 }

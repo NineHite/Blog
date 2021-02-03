@@ -16,6 +16,7 @@ import com.wf.captcha.ArithmeticCaptcha;
 import com.wf.captcha.GifCaptcha;
 import com.wf.captcha.SpecCaptcha;
 import com.wf.captcha.base.Captcha;
+import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -350,6 +351,63 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!Constants.User.DEFAULT_STATE.equals(userFromDb.getState())) {
             return ResponseResult.FAILED("当前账号已被禁止");
         }
+        createToken(response, userFromDb);
+        return ResponseResult.SUCCESS("登录成功");
+    }
+
+    /**
+     * 检查用户是否有登录，如果登录就返回用户信息
+     *
+     * @param request
+     * @param response
+     * @return
+     */
+    @Override
+    public User checkUser(HttpServletRequest request, HttpServletResponse response) {
+        // 拿到token_key
+        String tokenKey = CookieUtils.getCookie(request, Constants.User.COOKIE_TOKEN_KEY);
+        log.info("checkUse tokenKey == > " + tokenKey);
+        User user = parseByTokenKey(tokenKey);
+        if (user == null) {
+            // 解析出错，过期了
+            // 1.去数据库查询refreshToken
+            RefreshToken refreshToken = refreshTokenMapper.selectOne(new QueryWrapper<RefreshToken>().eq("token_key", tokenKey));
+            // 2.不存在就没有登录
+            if (refreshToken == null) {
+                log.info("refresh token is null...");
+                return null;
+            }
+            // 3.如果存在，解析refreshToken
+            try {
+                JwtUtils.parseJWT(refreshToken.getRefreshToken());
+                // 5.refreshToken有效，创建新的token和新的refreshToken
+                String userId = refreshToken.getUserId();
+                User userFromByDb = userMapper.selectById(userId);
+                // 删掉refreshToken的记录
+                // 创建新的
+                String newTokenKey = createToken(response, userFromByDb);
+                // 返回token
+                log.info("created new token and refresh token");
+                return parseByTokenKey(newTokenKey);
+            } catch (Exception e1) {
+                log.info("refresh token is expired...");
+                // 4.如果解析refreshToken过期，当前访问信息没有登录，提示登录
+                return null;
+            }
+        }
+        return user;
+    }
+
+    /**
+     * 删除旧的refresh token创建新的 返回token被md5加密后的tokenKey
+     *
+     * @param response
+     * @param userFromDb
+     * @return
+     */
+    private String createToken(HttpServletResponse response, User userFromDb) {
+        refreshTokenMapper.delete(new QueryWrapper<RefreshToken>().eq("user_id", userFromDb.getId()));
+        log.info("createToken deleted refresh token user_id == > " + userFromDb.getId());
         // 生成token
         Map<String, Object> claims = ClaimsUtils.userToClaims(userFromDb);
         // 默认有效两个小时
@@ -367,13 +425,32 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // TODO: 保存数据库里
         // refreshToken tokenKey 用户id 创建更新时间
         RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setId(idWorker.nextId() + "");
+        // refreshToken.setId(idWorker.nextId() + "");
         refreshToken.setRefreshToken(refreshTokenValue);
         refreshToken.setUserId(userFromDb.getId());
         refreshToken.setTokenKey(tokenKey);
-        refreshToken.setCreateTime(LocalDateTime.now());
-        refreshToken.setUpdateTime(LocalDateTime.now());
+        // refreshToken.setCreateTime(LocalDateTime.now());
+        // refreshToken.setUpdateTime(LocalDateTime.now());
         refreshTokenMapper.insert(refreshToken);
-        return ResponseResult.SUCCESS("登录成功");
+        return tokenKey;
+    }
+
+    /**
+     * 解析tokenKey返回User
+     *
+     * @param tokenKey
+     * @return
+     */
+    private User parseByTokenKey(String tokenKey) {
+        String token = (String) redisUtils.get(Constants.User.KEY_TOKEN + tokenKey);
+        if (token != null) {
+            try {
+                Claims claims = JwtUtils.parseJWT(token);
+                return ClaimsUtils.claimsToUser(claims);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return null;
     }
 }

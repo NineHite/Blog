@@ -4,10 +4,13 @@ import com.hitenine.blog.dao.CommentMapper;
 import com.hitenine.blog.pojo.Comment;
 import com.hitenine.blog.pojo.User;
 import com.hitenine.blog.response.ResponseResult;
-import com.hitenine.blog.utils.*;
+import com.hitenine.blog.service.UserService;
+import com.hitenine.blog.utils.Constants;
+import com.hitenine.blog.utils.CookieUtils;
+import com.hitenine.blog.utils.IdWorker;
+import com.hitenine.blog.utils.RedisUtils;
 import com.wf.captcha.SpecCaptcha;
 import com.wf.captcha.base.Captcha;
-import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +28,9 @@ import java.time.LocalDateTime;
 @RestController
 @RequestMapping("/test")
 public class TestController {
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private CommentMapper commentMapper;
@@ -70,7 +76,7 @@ public class TestController {
     }
 
     @PostMapping("/comment")
-    public ResponseResult testComment(@RequestBody Comment comment, HttpServletRequest request) {
+    public ResponseResult testComment(@RequestBody Comment comment, HttpServletRequest request, HttpServletResponse response) {
         String content = comment.getContent();
         log.info("comment content == > " + content);
         // 还得知道是谁的评论，对这个评论，身份确定
@@ -79,27 +85,10 @@ public class TestController {
             return ResponseResult.FAILED("账号未登录");
         }
         String token = (String) redisUtils.get(Constants.User.KEY_TOKEN + tokenKey);
-        if (token == null) {
-            // 空的话就是过期了，但有可能登录过了，可以查看refreshToken
-            // TODO: 2021/2/2
-            // 如果可以查看refreshToken不存在或者已经过期
-            // 提示用户未登录
+        User user = userService.checkUser(request, response);
+        if (user == null) {
+            return ResponseResult.FAILED("账号未登录");
         }
-
-        // 已经登录，解析token
-        Claims claims = null;
-        try {
-            claims = JwtUtils.parseJWT(token);
-        } catch (Exception e) {
-            // 过期了，去查refreshToken...
-            // TODO
-            // 如果refreshToken不存在或者已经过期，告诉用户未登录
-            return ResponseResult.FAILED("账户未登录");
-        }
-        if (claims == null) {
-            return ResponseResult.FAILED("账户未登录");
-        }
-        User user = ClaimsUtils.claimsToUser(claims);
         comment.setUserId(user.getId());
         comment.setUserAvatar(user.getAvatar());
         comment.setUserName(user.getUserName());
