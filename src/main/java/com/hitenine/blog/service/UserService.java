@@ -67,5 +67,58 @@ public interface UserService extends IService<User> {
      */
     ResponseResult doLogin(HttpServletRequest request, HttpServletResponse response, String captchaKey, String captcha, User user);
 
+    /**
+     * 查看用户登录状态：未登录为null
+     *
+     * @param request
+     * @param response
+     * @return
+     */
     User checkUser(HttpServletRequest request, HttpServletResponse response);
+
+    /**
+     * 获取用户信息
+     *
+     * @param userId
+     * @return
+     */
+    ResponseResult getUserInfo(String userId);
+
+    /**
+     * 检查邮箱是否注册
+     *
+     * @param email
+     * @return
+     */
+    ResponseResult checkEmail(String email);
+
+    /**
+     * 检查用户名是否注册
+     *
+     * @param userName
+     * @return
+     */
+    ResponseResult checkUserName(String userName);
+
+    /**
+     * 修改用户信息
+     *
+     * @param request
+     * @param response
+     * @param userId
+     * @param user
+     * @return
+     */
+    ResponseResult updateUserInfo(HttpServletRequest request, HttpServletResponse response, String userId, User user);
+
+    /**
+     * 根据用户id删除（修改状态）用户
+     *
+     * @param request
+     * @param response
+     * @param userId
+     * @return
+     */
+    ResponseResult deleteUserById(HttpServletRequest request, HttpServletResponse response, String userId);
+
 }

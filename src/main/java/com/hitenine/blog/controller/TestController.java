@@ -82,12 +82,12 @@ public class TestController {
         // 还得知道是谁的评论，对这个评论，身份确定
         String tokenKey = CookieUtils.getCookie(request, Constants.User.COOKIE_TOKEN_KEY);
         if (tokenKey == null) {
-            return ResponseResult.FAILED("账号未登录");
+            return ResponseResult.ACCOUNT_NOT_LOGIN();
         }
         String token = (String) redisUtils.get(Constants.User.KEY_TOKEN + tokenKey);
         User user = userService.checkUser(request, response);
         if (user == null) {
-            return ResponseResult.FAILED("账号未登录");
+            return ResponseResult.ACCOUNT_NOT_LOGIN();
         }
         comment.setUserId(user.getId());
         comment.setUserAvatar(user.getAvatar());

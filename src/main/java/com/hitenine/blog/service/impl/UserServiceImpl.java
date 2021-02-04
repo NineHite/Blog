@@ -2,6 +2,7 @@ package com.hitenine.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.gson.Gson;
 import com.hitenine.blog.dao.RefreshTokenMapper;
 import com.hitenine.blog.dao.SettingMapper;
 import com.hitenine.blog.dao.UserMapper;
@@ -52,6 +53,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private RefreshTokenMapper refreshTokenMapper;
+
+    @Autowired
+    private Gson gson;
 
     @Autowired
     private BCryptPasswordEncoder bCryptPasswordEncoder;
@@ -116,7 +120,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return ResponseResult.SUCCESS("初始化成功");
     }
 
-    public static final int[] captcha_font_types = {
+    public static final int[] CAPTCHA_FONT_TYPES = {
             Captcha.FONT_1, Captcha.FONT_2,
             Captcha.FONT_3, Captcha.FONT_4,
             Captcha.FONT_5, Captcha.FONT_6,
@@ -158,9 +162,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             // ((ArithmeticCaptcha) targetCaptcha).getArithmeticString();  // 获取运算的公式：3+2=?
             // targetCaptcha.text();  // 获取运算的结果：5
         }
-        int index = random.nextInt(captcha_font_types.length);
+        int index = random.nextInt(CAPTCHA_FONT_TYPES.length);
         log.info("captcha font type index == > " + index);
-        targetCaptcha.setFont(captcha_font_types[index]);
+        targetCaptcha.setFont(CAPTCHA_FONT_TYPES[index]);
         targetCaptcha.setCharType(Captcha.TYPE_DEFAULT);
         String content = targetCaptcha.text().toLowerCase();
         log.info("captcha content == > " + content);
@@ -349,7 +353,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 密码正确
         // 判断用户状态，如果是非正常，则返回结果
         if (!Constants.User.DEFAULT_STATE.equals(userFromDb.getState())) {
-            return ResponseResult.FAILED("当前账号已被禁止");
+            return ResponseResult.RESULT(ResponseState.ACCOUNT_DENIED);
         }
         createToken(response, userFromDb);
         return ResponseResult.SUCCESS("登录成功");
@@ -399,6 +403,124 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
+     * 解析tokenKey返回User
+     *
+     * @param tokenKey
+     * @return
+     */
+    private User parseByTokenKey(String tokenKey) {
+        String token = (String) redisUtils.get(Constants.User.KEY_TOKEN + tokenKey);
+        if (token != null) {
+            try {
+                Claims claims = JwtUtils.parseJWT(token);
+                return ClaimsUtils.claimsToUser(claims);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public ResponseResult getUserInfo(String userId) {
+        // 从数据库里获取
+        User user = userMapper.selectById(userId);
+        // 判断结果
+        if (user == null) {
+            // 如果不存在，返回不存在
+            return ResponseResult.FAILED("用户不存在");
+        }
+        // 存在就复制对象，清空密码以及关键信息：Email、IP、登录ID
+        // user.setPassword(""); // 不能这样做，因为事务没有提交，会导致数据库密码为空
+        String userJson = gson.toJson(user);
+        User newUser = gson.fromJson(userJson, User.class);
+        newUser.setPassword("");
+        newUser.setEmail("");
+        newUser.setLoginIp("");
+        newUser.setRegIp("");
+        // 返回结果
+        return ResponseResult.SUCCESS().setData(newUser);
+    }
+
+    @Override
+    public ResponseResult checkEmail(String email) {
+        User userByEmail = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
+        return userByEmail == null ? ResponseResult.FAILED("该邮箱未注册") : ResponseResult.SUCCESS("该邮箱已经注册");
+    }
+
+    @Override
+    public ResponseResult checkUserName(String userName) {
+        User userByUserName = userMapper.selectOne(new QueryWrapper<User>().eq("user_name", userName));
+        return userByUserName == null ? ResponseResult.FAILED("该用户名未注册") : ResponseResult.SUCCESS("该用户名已经注册");
+    }
+
+    @Override
+    public ResponseResult updateUserInfo(HttpServletRequest request, HttpServletResponse response, String userId, User user) {
+        // 从token中解析出来的user,为了校验权限只有用户自己才能修改自己的信息
+        User userFromTokenKey = checkUser(request, response);
+        if (userFromTokenKey == null) {
+            return ResponseResult.ACCOUNT_NOT_LOGIN();
+        }
+        // 判断当前的用户ID是否与即将修改的用户ID一致,如果一致才可以修改
+        User userFromDb = userMapper.selectById(userFromTokenKey.getId());
+        if (!userFromDb.getId().equals(userId)) {
+            return ResponseResult.PERMISSION_DENIED();
+        }
+        // 可以修改
+        // 修改的项：用户名、头像、签名
+        // 用户名
+        String userName = user.getUserName();
+        if (!StringUtils.isEmpty(userName)) {
+            User userByUserName = userMapper.selectOne(new QueryWrapper<User>().eq("user_name", userName));
+            if (userByUserName != null) {
+                ResponseResult.FAILED("该用户名已经注册");
+            }
+            userFromDb.setUserName(userName);
+        }
+        // 头像
+        if (!StringUtils.isEmpty(user.getAvatar())) {
+            userFromDb.setAvatar(user.getAvatar());
+        }
+        // 签名，可以为空
+        userFromDb.setSign(user.getSign());
+        userMapper.updateById(user);
+        // 删除redis里的token，下一次请求，需要解析token的就会根据refreshToken重新创建一个
+        String tokenKey = CookieUtils.getCookie(request, Constants.User.COOKIE_TOKEN_KEY);
+        redisUtils.del(Constants.User.KEY_TOKEN + tokenKey);
+        return ResponseResult.SUCCESS("用户信息更新成功");
+    }
+
+    /**
+     * 删除用户，并不是真的删除
+     * 而是修改状态
+     *
+     * PS：需要管理员权限
+     *
+     * @param request
+     * @param response
+     * @param userId
+     * @return
+     */
+    @Override
+    public ResponseResult deleteUserById(HttpServletRequest request, HttpServletResponse response, String userId) {
+        // 检验当前操作的用户是谁
+        User currentUser = checkUser(request, response);
+        if (currentUser == null) {
+            return ResponseResult.ACCOUNT_NOT_LOGIN();
+        }
+        // 判断角色
+        if (!Constants.User.ROLE_ADMIN.equals(currentUser.getRoles())) {
+            return ResponseResult.PERMISSION_DENIED();
+        }
+        // 可以删除用户了
+        int result = userMapper.deleteUserByState(userId);
+        if (result < 1) {
+            ResponseResult.SUCCESS("用户不存在");
+        }
+        return ResponseResult.SUCCESS("删除成功");
+    }
+
+    /**
      * 删除旧的refresh token创建新的 返回token被md5加密后的tokenKey
      *
      * @param response
@@ -435,22 +557,4 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return tokenKey;
     }
 
-    /**
-     * 解析tokenKey返回User
-     *
-     * @param tokenKey
-     * @return
-     */
-    private User parseByTokenKey(String tokenKey) {
-        String token = (String) redisUtils.get(Constants.User.KEY_TOKEN + tokenKey);
-        if (token != null) {
-            try {
-                Claims claims = JwtUtils.parseJWT(token);
-                return ClaimsUtils.claimsToUser(claims);
-            } catch (Exception e) {
-                return null;
-            }
-        }
-        return null;
-    }
 }

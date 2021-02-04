@@ -11,8 +11,20 @@ public class ResponseResult<T> {
     private String message;
     private T data;
 
+    public static <T> ResponseResult<T> RESULT(ResponseState responseState) {
+        return new ResponseResult<>(responseState);
+    }
+
     public static <T> ResponseResult<T> SUCCESS() {
         return new ResponseResult<>(ResponseState.SUCCESS);
+    }
+
+    public static <T> ResponseResult<T> ACCOUNT_NOT_LOGIN() {
+        return new ResponseResult<>(ResponseState.ACCOUNT_NOT_LOGIN);
+    }
+
+    public static <T> ResponseResult<T> PERMISSION_DENIED() {
+        return new ResponseResult<>(ResponseState.PERMISSION_DENIED);
     }
 
     public static <T> ResponseResult<T> SUCCESS(String message) {
@@ -43,7 +55,7 @@ public class ResponseResult<T> {
     }
 
     public ResponseResult(ResponseState responseState) {
-        this.success = responseState.isSuccess();
+        this.success = responseState.getSuccess();
         this.code = responseState.getCode();
         this.message = responseState.getMessage();
     }

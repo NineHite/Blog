@@ -11,31 +11,34 @@ public enum ResponseState {
     JOIN_IN_SUCCESS(true, 20001, "注册成功"),
     FAILED(false, 40000, "操作失败"),
     GET_RESOURCE_FAILED(false, 40001, "获取资源失败"),
+    ACCOUNT_NOT_LOGIN(false, 40002, "账号未登录"),
+    PERMISSION_DENIED(false, 40003, "无权限访问"),
+    ACCOUNT_DENIED(false, 40004, "账号被禁止"),
     LOGIN_FAILED(false, 49999, "登陆失败");
 
-    private boolean success;
-    private int code;
+    private Boolean success;
+    private Integer code;
     private String message;
 
-    ResponseState(boolean success, int code, String message) {
+    ResponseState(Boolean success, Integer code, String message) {
         this.success = success;
         this.code = code;
         this.message = message;
     }
 
-    public boolean isSuccess() {
+    public Boolean getSuccess() {
         return success;
     }
 
-    public void setSuccess(boolean success) {
+    public void setSuccess(Boolean success) {
         this.success = success;
     }
 
-    public int getCode() {
+    public Integer getCode() {
         return code;
     }
 
-    public void setCode(int code) {
+    public void setCode(Integer code) {
         this.code = code;
     }
 
@@ -45,5 +48,23 @@ public enum ResponseState {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public static String getMessage(String name) {
+        for (ResponseState item : ResponseState.values()) {
+            if (item.name().equals(name)) {
+                return item.message;
+            }
+        }
+        return null;
+    }
+
+    public static Integer getCode(String name) {
+        for (ResponseState item : ResponseState.values()) {
+            if (item.name().equals(name)) {
+                return item.code;
+            }
+        }
+        return null;
     }
 }

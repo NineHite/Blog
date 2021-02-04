@@ -1,6 +1,7 @@
 package com.hitenine.blog;
 
 import com.hitenine.blog.dao.SettingMapper;
+import com.hitenine.blog.dao.UserMapper;
 import com.hitenine.blog.utils.RedisUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,6 +9,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
 class BlogApplicationTest {
+
+
+    @Autowired
+    private UserMapper userMapper;
 
     @Autowired
     private SettingMapper settingMapper;
@@ -17,9 +22,8 @@ class BlogApplicationTest {
 
     @Test
     void contextLoads() {
-        redisUtils.set("haha", "world");
-        String  haha = (String) redisUtils.get("haha");
-        System.out.println(haha);
+        int i = userMapper.deleteUserByState("1355875146606440441");
+        System.out.println(i);
     }
 
 }

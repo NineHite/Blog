@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import com.hitenine.blog.utils.IdWorker;
 import com.hitenine.blog.utils.RedisUtils;
 import org.springframework.context.annotation.Bean;
@@ -87,5 +88,10 @@ public class BeanConfiguration {
     @Bean
     public Random random() {
         return new Random();
+    }
+
+    @Bean
+    public Gson gson() {
+        return new Gson();
     }
 }

@@ -3,6 +3,8 @@ package com.hitenine.blog.controller.user;
 import com.hitenine.blog.pojo.User;
 import com.hitenine.blog.response.ResponseResult;
 import com.hitenine.blog.service.UserService;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -140,18 +142,29 @@ public class UserApi {
      */
     @GetMapping("/{userId}")
     public ResponseResult getUserInfo(@PathVariable("userId") String userId) {
-        return null;
+        return userService.getUserInfo(userId);
     }
 
     /**
      * 修改用户信息
+     * <p>
+     *     允许用户修改的内容：
+     *                      1.头像
+     *                      2.用户名（唯一的）
+     *                      3.签名
+     *                      4.密码（单独修改）
+     *                      5.Email（唯一的，单独修改）
+     * </p>
      *
      * @param user
      * @return
      */
     @PutMapping("/{userId}")
-    public ResponseResult updateUserInfo(@PathVariable("userId") String userId, @RequestBody User user) {
-        return null;
+    public ResponseResult updateUserInfo(HttpServletRequest request,
+                                         HttpServletResponse response,
+                                         @PathVariable("userId") String userId,
+                                         @RequestBody User user) {
+        return userService.updateUserInfo(request, response, userId, user);
     }
 
     @GetMapping("/list")
@@ -159,9 +172,53 @@ public class UserApi {
         return null;
     }
 
+    /**
+     * 需要管理员权限
+     * 不是真的删除，而是需改状态c
+     *
+     * @param request
+     * @param response
+     * @param userId
+     * @return
+     */
     @DeleteMapping("/{userId}")
-    public ResponseResult deleteUser(@PathVariable("userId") String userId) {
-        return null;
+    public ResponseResult deleteUser(HttpServletRequest request,
+                                     HttpServletResponse response,
+                                     @PathVariable("userId") String userId) {
+        // 判断当前操作的用户是谁
+        // 根据用户角色判断是否可以删除
+        // TODO: 2021/2/4 通过注解的方式来控制权限
+        return userService.deleteUserById(request, response, userId);
+    }
+
+    /**
+     * 检查Email的唯一性，是否已经注册
+     *
+     * @param email 邮箱地址
+     * @return SUCCESS -- > 已经注册，FAILED -- > 没有注册
+     */
+    @ApiResponses({
+            @ApiResponse(code = 20000, message = "表示当前邮箱已经注册"),
+            @ApiResponse(code = 40000, message = "表示当前邮箱未注册")
+    })
+    @GetMapping("/email")
+    public ResponseResult checkEmail(@RequestParam("email") String email) {
+        return userService.checkEmail(email);
+    }
+
+    /**
+     * 检查用户名的唯一性，是否已经注册
+     *
+     * @param userName 用户名
+     * @return SUCCESS -- > 已经注册，FAILED -- > 没有注册
+     */
+    @ApiResponses({
+            @ApiResponse(code = 20000, message = "表示当前用户名已经注册"),
+            @ApiResponse(code = 40000, message = "表示当前用户名未注册")
+    })
+    @GetMapping("/user_name")
+    public ResponseResult checkUserName(@RequestParam("user_name") String userName) {
+        return userService.checkUserName(userName);
     }
 
 }
