@@ -1,6 +1,8 @@
 package com.hitenine.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.OrderItem;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.hitenine.blog.dao.RefreshTokenMapper;
@@ -13,6 +15,7 @@ import com.hitenine.blog.response.ResponseResult;
 import com.hitenine.blog.response.ResponseState;
 import com.hitenine.blog.service.UserService;
 import com.hitenine.blog.utils.*;
+import com.hitenine.blog.vo.UserVO;
 import com.wf.captcha.ArithmeticCaptcha;
 import com.wf.captcha.GifCaptcha;
 import com.wf.captcha.SpecCaptcha;
@@ -25,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -168,7 +173,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         targetCaptcha.setCharType(Captcha.TYPE_DEFAULT);
         String content = targetCaptcha.text().toLowerCase();
         log.info("captcha content == > " + content);
-        //保存redis中 10分钟有效
+        // 保存redis中 10分钟有效
+        // 删除的时机：1.自然过期 2.验证码用完删除：看get
         redisUtils.set(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey, content, 10 * Constants.TimeValue.MIN);
         // 输出图片流
         targetCaptcha.out(response.getOutputStream());
@@ -274,7 +280,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 4.检查邮箱验证码是否正确
         String verifyCode = (String) redisUtils.get(Constants.User.KEY_EMAIL_CONTENT + email);
         if (StringUtils.isEmpty(verifyCode)) {
-            return ResponseResult.FAILED("邮箱验证已过期");
+            return ResponseResult.FAILED("邮箱验证码已过期");
         }
         if (!verifyCode.equals(emailCode)) {
             return ResponseResult.FAILED("邮箱验证码不正确");
@@ -319,9 +325,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public ResponseResult doLogin(HttpServletRequest request,
-                                  HttpServletResponse response,
-                                  String captchaKey,
+    public ResponseResult doLogin(String captchaKey,
                                   String captcha,
                                   User user) {
         // captcha因为它是路径不能为空，所以captchaValue可能为空
@@ -329,6 +333,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!captcha.equals(captchaValue)) {
             ResponseResult.FAILED("图灵验证码不正确");
         }
+        // 验证成功，删除验证码
+        redisUtils.del(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey);
         // 有可能是用户名，也有可能是邮箱 让下面来做判断
         String userName = user.getUserName();
         if (StringUtils.isEmpty(userName)) {
@@ -355,21 +361,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!Constants.User.DEFAULT_STATE.equals(userFromDb.getState())) {
             return ResponseResult.RESULT(ResponseState.ACCOUNT_DENIED);
         }
-        createToken(response, userFromDb);
+        createToken(getResponse(), userFromDb);
         return ResponseResult.SUCCESS("登录成功");
     }
 
     /**
      * 检查用户是否有登录，如果登录就返回用户信息
      *
-     * @param request
-     * @param response
      * @return
      */
     @Override
-    public User checkUser(HttpServletRequest request, HttpServletResponse response) {
+    public User checkUser() {
+        // 拿到request、response
+        // HttpServletRequest request = getRequest();
+        // HttpServletResponse response = getResponse();
         // 拿到token_key
-        String tokenKey = CookieUtils.getCookie(request, Constants.User.COOKIE_TOKEN_KEY);
+        String tokenKey = CookieUtils.getCookie(getRequest(), Constants.User.COOKIE_TOKEN_KEY);
         log.info("checkUse tokenKey == > " + tokenKey);
         User user = parseByTokenKey(tokenKey);
         if (user == null) {
@@ -389,7 +396,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 User userFromByDb = userMapper.selectById(userId);
                 // 删掉refreshToken的记录
                 // 创建新的
-                String newTokenKey = createToken(response, userFromByDb);
+                String newTokenKey = createToken(getResponse(), userFromByDb);
                 // 返回token
                 log.info("created new token and refresh token");
                 return parseByTokenKey(newTokenKey);
@@ -455,9 +462,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public ResponseResult updateUserInfo(HttpServletRequest request, HttpServletResponse response, String userId, User user) {
+    public ResponseResult updateUserInfo(String userId, User user) {
         // 从token中解析出来的user,为了校验权限只有用户自己才能修改自己的信息
-        User userFromTokenKey = checkUser(request, response);
+        User userFromTokenKey = checkUser();
         if (userFromTokenKey == null) {
             return ResponseResult.ACCOUNT_NOT_LOGIN();
         }
@@ -485,7 +492,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userFromDb.setSign(user.getSign());
         userMapper.updateById(user);
         // 删除redis里的token，下一次请求，需要解析token的就会根据refreshToken重新创建一个
-        String tokenKey = CookieUtils.getCookie(request, Constants.User.COOKIE_TOKEN_KEY);
+        String tokenKey = CookieUtils.getCookie(getRequest(), Constants.User.COOKIE_TOKEN_KEY);
         redisUtils.del(Constants.User.KEY_TOKEN + tokenKey);
         return ResponseResult.SUCCESS("用户信息更新成功");
     }
@@ -496,15 +503,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      *
      * PS：需要管理员权限
      *
-     * @param request
-     * @param response
      * @param userId
      * @return
      */
     @Override
-    public ResponseResult deleteUserById(HttpServletRequest request, HttpServletResponse response, String userId) {
+    public ResponseResult deleteUserById(String userId) {
         // 检验当前操作的用户是谁
-        User currentUser = checkUser(request, response);
+        User currentUser = checkUser();
         if (currentUser == null) {
             return ResponseResult.ACCOUNT_NOT_LOGIN();
         }
@@ -518,6 +523,110 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             ResponseResult.SUCCESS("用户不存在");
         }
         return ResponseResult.SUCCESS("删除成功");
+    }
+
+    /**
+     * 获取用户列表
+     * 权限：管理员权限
+     *
+     * @param page
+     * @param size
+     * @return
+     */
+    @Override
+    public ResponseResult listUsers(int page, int size) {
+        // 检验当前操作的用户是谁
+        // User currentUser = checkUser(request, response);
+        // if (currentUser == null) {
+        //     return ResponseResult.ACCOUNT_NOT_LOGIN();
+        // }
+        // // 判断角色
+        // if (!Constants.User.ROLE_ADMIN.equals(currentUser.getRoles())) {
+        //     return ResponseResult.PERMISSION_DENIED();
+        // }
+        // 可以获取用户列表
+        // 分页查询
+        // page和size限制一下
+        page = Math.max(page, Constants.PageSize.DEFAULT_PAGE);
+        size = Math.max(size, Constants.PageSize.DEFAULT_PAGE);
+        Page<UserVO> userPage = new Page<>(page, size);
+        userPage.addOrder(OrderItem.desc("create_time"));
+        // Page<User> all = userMapper.selectPage(userPage, new QueryWrapper<User>().orderByDesc("create_time"));
+        Page<UserVO> all = (Page<UserVO>) userMapper.selectUsers(userPage);
+        UserVO userVO = new UserVO();
+        return ResponseResult.SUCCESS("获取用户列表成功").setData(all);
+    }
+
+    @Override
+    public ResponseResult updatePassword(String verifyCode, User user) {
+        String email = user.getEmail();
+        // 检查邮箱是否填写
+        if (StringUtils.isEmpty(email)) {
+            ResponseResult.FAILED("邮箱不可以为空");
+        }
+        // 根据邮箱去redis里验证
+        // 进行对比
+        String redisVerifyCode = (String) redisUtils.get(Constants.User.KEY_EMAIL_CONTENT + email);
+        if (redisVerifyCode == null || !redisVerifyCode.equals(verifyCode)) {
+            return ResponseResult.FAILED("验证码错误");
+        }
+        redisUtils.del(Constants.User.KEY_EMAIL_CONTENT + email);
+        // 修改密码
+        int result = userMapper.updatePasswordByEmail(bCryptPasswordEncoder.encode(user.getPassword()), email);
+        return result > 0 ? ResponseResult.SUCCESS("密码修改成功") : ResponseResult.FAILED("密码修改失败");
+    }
+
+    /**
+     * 更新邮箱
+     *
+     * @param email
+     * @param verifyCode
+     * @return
+     */
+    @Override
+    public ResponseResult updateEmail(String email, String verifyCode) {
+        // 1.确保已经登录
+        User user = this.checkUser();
+        // 没有登录
+        if (user == null) {
+            return ResponseResult.ACCOUNT_NOT_LOGIN();
+        }
+        // 2.对比验证码，确保新的邮箱地址是属于当前用户的
+        String redisVerifyCode = (String) redisUtils.get(Constants.User.KEY_EMAIL_CONTENT + email);
+        if (StringUtils.isEmpty(verifyCode) || !redisVerifyCode.equals(verifyCode)) {
+            return ResponseResult.FAILED("验证码错误");
+        }
+        // 验证码正确，删除验证码
+        redisUtils.del(Constants.User.KEY_EMAIL_CONTENT + email);
+        // 可以修改邮箱
+        int result = userMapper.updateEmailById(email, user.getId());
+        return result > 0 ? ResponseResult.SUCCESS("邮箱修改成功") : ResponseResult.FAILED("邮箱修改失败");
+    }
+
+    @Override
+    public ResponseResult doLogout() {
+        // 拿到tokenKey
+        String tokenKey = CookieUtils.getCookie(getRequest(), Constants.User.COOKIE_TOKEN_KEY);
+        if (StringUtils.isEmpty(tokenKey)) {
+            return ResponseResult.ACCOUNT_NOT_LOGIN();
+        }
+        // 删除redis里的token
+        redisUtils.del(Constants.User.KEY_TOKEN + tokenKey);
+        // 删除mysql里的refreshToekn
+        refreshTokenMapper.delete(new QueryWrapper<RefreshToken>().lambda().eq(RefreshToken::getTokenKey, tokenKey));
+        // 删除cookie
+        CookieUtils.deleteCookie(getResponse(), Constants.User.COOKIE_TOKEN_KEY);
+        return ResponseResult.SUCCESS("退出登录成功");
+    }
+
+    private HttpServletRequest getRequest() {
+        ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        return requestAttributes.getRequest();
+    }
+
+    private HttpServletResponse getResponse() {
+        ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        return requestAttributes.getResponse();
     }
 
     /**
@@ -542,9 +651,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 把tokenKey写到cookies里
         // 这个要动态获取，可以从request里获取
         CookieUtils.setUpCookie(response, Constants.User.COOKIE_TOKEN_KEY, tokenKey);
-        // TODO:生成refreshToken
-        String refreshTokenValue = JwtUtils.createRefreshToken(userFromDb.getId(), Constants.TimeValue.MONTH);// 一个月有效
-        // TODO: 保存数据库里
+        // 生成refreshToken
+        // 一个月有效
+        String refreshTokenValue = JwtUtils.createRefreshToken(userFromDb.getId(), Constants.TimeValue.MONTH);
+        // 保存数据库里
         // refreshToken tokenKey 用户id 创建更新时间
         RefreshToken refreshToken = new RefreshToken();
         // refreshToken.setId(idWorker.nextId() + "");

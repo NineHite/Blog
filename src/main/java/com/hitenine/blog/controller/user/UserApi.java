@@ -7,6 +7,7 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -50,7 +51,7 @@ public class UserApi {
      *
      * @return
      */
-    @PostMapping
+    @PostMapping("/join_in")
     public ResponseResult register(HttpServletRequest request,
                                    @RequestBody User user,
                                    @RequestParam("verify_code") String emailCode,
@@ -74,13 +75,11 @@ public class UserApi {
      * @param user
      * @return
      */
-    @PostMapping("/{captcha}/{captcha_key}")
-    public ResponseResult login(HttpServletRequest request,
-                                HttpServletResponse response,
-                                @PathVariable("captcha_key") String captchaKey,
+    @PostMapping("/login/{captcha}/{captcha_key}")
+    public ResponseResult login(@PathVariable("captcha_key") String captchaKey,
                                 @PathVariable("captcha") String captcha,
                                 @RequestBody User user) {
-        return userService.doLogin(request, response, captchaKey, captcha, user);
+        return userService.doLogin(captchaKey, captcha, user);
     }
 
     /**
@@ -125,13 +124,31 @@ public class UserApi {
 
     /**
      * 修改密码
+     * 普通做法：通过旧密码对比来更新密码
+     *
+     * 即可以找回密码，也可以修改密码
+     * 找回密码：发送邮箱验证码/手机 -- > 判断验证码是否正确来
+     * 对应邮箱/手机号码注册的账号是否属于你
+     *
+     * 步骤：
+     *      1.用户填写邮箱
+     *      2.用户获取验证码type = forget
+     *      3.填写验证码
+     *      4.用户填写新的密码
+     *      5.提交数据：邮箱、密码、新密码、验证码（正确）
+     *
+     *
+     * 注册(register)：如果已经注册过了：该邮箱已经被注册
+     * 找回密码(forget)：如果已经注册过了：该邮箱没有被注册
+     * 修改邮箱（新的邮箱）(update)：如果已经注册过了：该邮箱已经注册
      *
      * @param user
      * @return
      */
-    @PutMapping("/password/{userId}")
-    public ResponseResult updatePassword(@PathVariable("userId") String userId, @RequestBody User user) {
-        return null;
+    @PutMapping("/password/{verify_code}")
+    public ResponseResult updatePassword(@PathVariable("verify_code") String verifyCode,
+                                         @RequestBody User user) {
+        return userService.updatePassword(verifyCode, user);
     }
 
     /**
@@ -140,7 +157,7 @@ public class UserApi {
      * @param userId
      * @return
      */
-    @GetMapping("/{userId}")
+    @GetMapping("/user_info/{userId}")
     public ResponseResult getUserInfo(@PathVariable("userId") String userId) {
         return userService.getUserInfo(userId);
     }
@@ -159,36 +176,41 @@ public class UserApi {
      * @param user
      * @return
      */
-    @PutMapping("/{userId}")
-    public ResponseResult updateUserInfo(HttpServletRequest request,
-                                         HttpServletResponse response,
-                                         @PathVariable("userId") String userId,
+    @PutMapping("/user_info/{userId}")
+    public ResponseResult updateUserInfo(@PathVariable("userId") String userId,
                                          @RequestBody User user) {
-        return userService.updateUserInfo(request, response, userId, user);
+        return userService.updateUserInfo(userId, user);
     }
 
+    /**
+     * 获取用户列表
+     * 权限：管理员权限
+     *
+     * @param page
+     * @param size
+     * @return
+     */
+    @PreAuthorize("@permission.admin()")
     @GetMapping("/list")
-    public ResponseResult listUsers(@RequestParam("page") int page, @RequestParam("size") int size) {
-        return null;
+    public ResponseResult listUsers(@RequestParam("page") int page,
+                                    @RequestParam("size") int size) {
+        return userService.listUsers(page, size);
     }
 
     /**
      * 需要管理员权限
      * 不是真的删除，而是需改状态c
      *
-     * @param request
-     * @param response
      * @param userId
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @DeleteMapping("/{userId}")
-    public ResponseResult deleteUser(HttpServletRequest request,
-                                     HttpServletResponse response,
-                                     @PathVariable("userId") String userId) {
+    public ResponseResult deleteUser(@PathVariable("userId") String userId) {
         // 判断当前操作的用户是谁
         // 根据用户角色判断是否可以删除
         // TODO: 2021/2/4 通过注解的方式来控制权限
-        return userService.deleteUserById(request, response, userId);
+        return userService.deleteUserById(userId);
     }
 
     /**
@@ -219,6 +241,44 @@ public class UserApi {
     @GetMapping("/user_name")
     public ResponseResult checkUserName(@RequestParam("user_name") String userName) {
         return userService.checkUserName(userName);
+    }
+
+    /**
+     * 1.必须已经登录
+     * 2.新的邮箱没有注册过
+     *
+     * 用户步骤：
+     *          1.登录
+     *          2.输入新的邮箱地址
+     *          3.获取验证码 type=update
+     *          4.输入验证码
+     *          5.提交数据
+     *
+     * 需要提交的数据：
+     *              1.新的邮箱
+     *              2.验证码
+     *              3.其他信息从token中获取
+     *
+     * @return
+     */
+    @PutMapping("/email")
+    public ResponseResult updateEmail(@RequestParam("email") String email,
+                                      @RequestParam("verify_code") String verifyCode) {
+        return userService.updateEmail(email, verifyCode);
+    }
+
+    /**
+     * 退出登录
+     * 拿到koken_key
+     * 删除redis里对应的token
+     * 删除mysql里对应的refreshToken
+     * 删除cookie里的tokenKey
+     *
+     * @return
+     */
+    @GetMapping("/logout")
+    public ResponseResult logout() {
+        return userService.doLogout();
     }
 
 }

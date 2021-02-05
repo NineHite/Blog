@@ -58,23 +58,19 @@ public interface UserService extends IService<User> {
 
     /**
      *
-     * @param response
-     * @param request
      * @param captchaKey
      * @param captcha
      * @param user
      * @return
      */
-    ResponseResult doLogin(HttpServletRequest request, HttpServletResponse response, String captchaKey, String captcha, User user);
+    ResponseResult doLogin(String captchaKey, String captcha, User user);
 
     /**
      * 查看用户登录状态：未登录为null
      *
-     * @param request
-     * @param response
      * @return
      */
-    User checkUser(HttpServletRequest request, HttpServletResponse response);
+    User checkUser();
 
     /**
      * 获取用户信息
@@ -103,22 +99,47 @@ public interface UserService extends IService<User> {
     /**
      * 修改用户信息
      *
-     * @param request
-     * @param response
      * @param userId
      * @param user
      * @return
      */
-    ResponseResult updateUserInfo(HttpServletRequest request, HttpServletResponse response, String userId, User user);
+    ResponseResult updateUserInfo(String userId, User user);
 
     /**
      * 根据用户id删除（修改状态）用户
      *
-     * @param request
-     * @param response
      * @param userId
      * @return
      */
-    ResponseResult deleteUserById(HttpServletRequest request, HttpServletResponse response, String userId);
+    ResponseResult deleteUserById(String userId);
 
+    /**
+     * 获取用户列表
+     * 权限：管理员权限
+     *
+     * @param page
+     * @param size
+     * @return
+     */
+    ResponseResult listUsers(int page, int size);
+
+    /**
+     * 修改密码
+     *
+     * @param verifyCode
+     * @param user
+     * @return
+     */
+    ResponseResult updatePassword(String verifyCode, User user);
+
+    /**
+     * 修改邮箱
+     *
+     * @param email
+     * @param verifyCode
+     * @return
+     */
+    ResponseResult updateEmail(String email, String verifyCode);
+
+    ResponseResult doLogout();
 }

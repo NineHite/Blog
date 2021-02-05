@@ -85,7 +85,7 @@ public class TestController {
             return ResponseResult.ACCOUNT_NOT_LOGIN();
         }
         String token = (String) redisUtils.get(Constants.User.KEY_TOKEN + tokenKey);
-        User user = userService.checkUser(request, response);
+        User user = userService.checkUser();
         if (user == null) {
             return ResponseResult.ACCOUNT_NOT_LOGIN();
         }

@@ -2,8 +2,8 @@ package com.hitenine.blog.response;
 
 /**
  * @author Hitenine
- * @date 2021/1/28 21:23
  * @version 1.0
+ * @date 2021/1/28 21:23
  */
 public enum ResponseState {
     SUCCESS(true, 20000, "操作成功"),
@@ -14,7 +14,12 @@ public enum ResponseState {
     ACCOUNT_NOT_LOGIN(false, 40002, "账号未登录"),
     PERMISSION_DENIED(false, 40003, "无权限访问"),
     ACCOUNT_DENIED(false, 40004, "账号被禁止"),
-    LOGIN_FAILED(false, 49999, "登陆失败");
+    LOGIN_FAILED(false, 49999, "登陆失败"),
+
+    FORBIDDEN(false, 403, "无权限访问"),
+    NOT_FOUND(false, 404, "页面丢失"),
+    GATEWAY_TIMEOUT(false, 504, "系统繁忙，请稍后重试"),
+    HTTP_VERSION_NOT_SUPPORTED(false, 505, "请求错误，请检查所提交数据");
 
     private Boolean success;
     private Integer code;
