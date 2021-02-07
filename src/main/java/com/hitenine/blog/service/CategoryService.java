@@ -12,4 +12,6 @@ public interface CategoryService extends IService<Category> {
     ResponseResult listCategories(int page, int size);
 
     ResponseResult updateCategory(String categoryId, Category category);
+
+    ResponseResult deleteCategory(String categoryId);
 }

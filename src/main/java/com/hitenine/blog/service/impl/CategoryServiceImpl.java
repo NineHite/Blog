@@ -102,4 +102,10 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
         // 4.返回结果
         return ResponseResult.SUCCESS("分类修改成功");
     }
+
+    @Override
+    public ResponseResult deleteCategory(String categoryId) {
+        int result = categoryMapper.deleteCategoryByUpdateState(categoryId);
+        return result > 0 ? ResponseResult.SUCCESS("分类删除成功") : ResponseResult.FAILED("分类不存在");
+    }
 }

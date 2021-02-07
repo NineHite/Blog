@@ -36,14 +36,18 @@ public class CategoryAdminApi {
     }
 
     /**
-     * 删除分类
+     * 删除分类：把状态改了
+     * 做的严谨一点就是创建一个映射表，
+     * 查找文章的时候发现分类不存在就会指向新的分类，
+     * 并且把分类id修改为指向的分类
      *
      * @param categoryId
      * @return
      */
-    @DeleteMapping("categoryId")
+    @PreAuthorize("@permission.admin()")
+    @DeleteMapping("/{categoryId}")
     public ResponseResult deleteCategory(@PathVariable("categoryId") String categoryId) {
-        return null;
+        return categoryService.deleteCategory(categoryId);
     }
 
     /**
