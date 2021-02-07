@@ -226,7 +226,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 2.检查邮箱地址是否正确
         boolean isEmailFormatOk = TextUtils.isEmailAddressOk(emailAddress);
         if (!isEmailFormatOk) {
-            ResponseResult.FAILED("邮箱地址格式不正确");
+            return ResponseResult.FAILED("邮箱地址格式不正确");
         }
         int code = random.nextInt(9000000) + 100000;
         log.info("sendEmail == > code " + code);
@@ -331,18 +331,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // captcha因为它是路径不能为空，所以captchaValue可能为空
         String captchaValue = (String) redisUtils.get(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey);
         if (!captcha.equals(captchaValue)) {
-            ResponseResult.FAILED("图灵验证码不正确");
+            return ResponseResult.FAILED("图灵验证码不正确");
         }
         // 验证成功，删除验证码
         redisUtils.del(Constants.User.KEY_CAPTCHA_CONTENT + captchaKey);
         // 有可能是用户名，也有可能是邮箱 让下面来做判断
         String userName = user.getUserName();
         if (StringUtils.isEmpty(userName)) {
-            ResponseResult.FAILED("用户名不能为空");
+            return ResponseResult.FAILED("用户名不能为空");
         }
         String password = user.getPassword();
         if (StringUtils.isEmpty(password)) {
-            ResponseResult.FAILED("密码不能为空");
+            return ResponseResult.FAILED("密码不能为空");
         }
         User userFromDb = userMapper.selectOne(new QueryWrapper<User>().eq("user_name", userName));
         if (userFromDb == null) {
@@ -354,7 +354,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 用户存在，对比密码
         boolean matches = bCryptPasswordEncoder.matches(password, userFromDb.getPassword());
         if (!matches) {
-            ResponseResult.FAILED("用户名或密码错误");
+            return ResponseResult.FAILED("用户名或密码错误");
         }
         // 密码正确
         // 判断用户状态，如果是非正常，则返回结果
@@ -480,7 +480,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!StringUtils.isEmpty(userName)) {
             User userByUserName = userMapper.selectOne(new QueryWrapper<User>().eq("user_name", userName));
             if (userByUserName != null) {
-                ResponseResult.FAILED("该用户名已经注册");
+                return ResponseResult.FAILED("该用户名已经注册");
             }
             userFromDb.setUserName(userName);
         }
@@ -490,7 +490,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         // 签名，可以为空
         userFromDb.setSign(user.getSign());
-        userMapper.updateById(user);
+        userMapper.updateById(userFromDb);
         // 删除redis里的token，下一次请求，需要解析token的就会根据refreshToken重新创建一个
         String tokenKey = CookieUtils.getCookie(getRequest(), Constants.User.COOKIE_TOKEN_KEY);
         redisUtils.del(Constants.User.KEY_TOKEN + tokenKey);
@@ -520,7 +520,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 可以删除用户了
         int result = userMapper.deleteUserByState(userId);
         if (result < 1) {
-            ResponseResult.SUCCESS("用户不存在");
+            return ResponseResult.SUCCESS("用户不存在");
         }
         return ResponseResult.SUCCESS("删除成功");
     }
@@ -553,16 +553,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userPage.addOrder(OrderItem.desc("create_time"));
         // Page<User> all = userMapper.selectPage(userPage, new QueryWrapper<User>().orderByDesc("create_time"));
         Page<UserVO> all = (Page<UserVO>) userMapper.selectUsers(userPage);
-        UserVO userVO = new UserVO();
         return ResponseResult.SUCCESS("获取用户列表成功").setData(all);
     }
 
     @Override
     public ResponseResult updatePassword(String verifyCode, User user) {
         String email = user.getEmail();
+        if (StringUtils.isEmpty(user.getPassword())) {
+            return ResponseResult.FAILED("密码不可以为空");
+        }
         // 检查邮箱是否填写
         if (StringUtils.isEmpty(email)) {
-            ResponseResult.FAILED("邮箱不可以为空");
+            return ResponseResult.FAILED("邮箱不可以为空");
         }
         // 根据邮箱去redis里验证
         // 进行对比
