@@ -377,7 +377,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // HttpServletResponse response = getResponse();
         // 拿到token_key
         String tokenKey = CookieUtils.getCookie(getRequest(), Constants.User.COOKIE_TOKEN_KEY);
-        log.info("checkUse tokenKey == > " + tokenKey);
+        log.info("checkUser tokenKey == > " + tokenKey);
         User user = parseByTokenKey(tokenKey);
         if (user == null) {
             // 解析出错，过期了

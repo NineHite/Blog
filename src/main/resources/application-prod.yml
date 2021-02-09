@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8081
 
 spring:
   application:
@@ -24,11 +24,13 @@ mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-#    map-underscore-to-camel-case: true
+  #    map-underscore-to-camel-case: true
   global-config:
     banner: false
     db-config:
       table-prefix: tb_
   type-aliases-package: com.hitenine.blog.pojo
 
-sob.blog.image.save-path: D:\code\backend\images
+sob.blog.image.save-path: \usr\sobBlog\images
+# 2M
+sob.blog.image.max-size: 2097152

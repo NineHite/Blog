@@ -1,5 +1,8 @@
 package com.hitenine.blog.pojo;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -23,12 +26,28 @@ public class Image implements Serializable {
     /**
      * ID
      */
+    @TableId
     private String id;
 
     /**
      * 用户ID
      */
     private String userId;
+
+    /**
+     * 原名称
+     */
+    private String name;
+
+    /**
+     * 存储路径
+     */
+    private String path;
+
+    /**
+     * 文件类型
+     */
+    private String contentType;
 
     /**
      * 路径
@@ -38,16 +57,18 @@ public class Image implements Serializable {
     /**
      * 状态（0表示删除，1表正常）
      */
-    private String state;
+    private String state = "1";
 
     /**
      * 创建时间
      */
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
     /**
      * 更新时间
      */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
 }

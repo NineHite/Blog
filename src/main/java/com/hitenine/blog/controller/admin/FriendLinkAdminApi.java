@@ -3,6 +3,9 @@ package com.hitenine.blog.controller.admin;
 
 import com.hitenine.blog.pojo.FriendLink;
 import com.hitenine.blog.response.ResponseResult;
+import com.hitenine.blog.service.FriendLinkService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -17,15 +20,19 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/admin/friend_link")
 public class FriendLinkAdminApi {
 
+    @Autowired
+    private FriendLinkService friendLinkService;
+
     /**
      * 添加友链
      *
      * @param friendLink
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @PostMapping
-    public ResponseResult addFriend(@RequestBody FriendLink friendLink) {
-        return null;
+    public ResponseResult addFriendLink(@RequestBody FriendLink friendLink) {
+        return friendLinkService.addFriendLink(friendLink);
     }
 
     /**
@@ -34,9 +41,10 @@ public class FriendLinkAdminApi {
      * @param friendLinkId
      * @return
      */
-    @DeleteMapping("friendLinkId")
-    public ResponseResult deleteFriend(@PathVariable("friendLinkId") String friendLinkId) {
-        return null;
+    @PreAuthorize("@permission.admin()")
+    @DeleteMapping("{friendLinkId}")
+    public ResponseResult deleteFriendLink(@PathVariable("friendLinkId") String friendLinkId) {
+        return friendLinkService.deleteFriendLink(friendLinkId);
     }
 
     /**
@@ -46,9 +54,10 @@ public class FriendLinkAdminApi {
      * @param friendLink
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @PutMapping("/{friendLinkId}")
-    public ResponseResult updateFriend(@PathVariable("friendLinkId") String friendLinkId, @RequestBody FriendLink friendLink) {
-        return null;
+    public ResponseResult updateFriendLink(@PathVariable("friendLinkId") String friendLinkId, @RequestBody FriendLink friendLink) {
+        return friendLinkService.updateFriendLink(friendLinkId, friendLink);
     }
 
     /**
@@ -57,9 +66,10 @@ public class FriendLinkAdminApi {
      * @param friendLinkId
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @GetMapping("/{friendLinkId}")
-    public ResponseResult getFriend(@PathVariable("friendLinkId") String friendLinkId) {
-        return null;
+    public ResponseResult getFriendLink(@PathVariable("friendLinkId") String friendLinkId) {
+        return friendLinkService.getFriendLink(friendLinkId);
     }
 
     /**
@@ -69,9 +79,10 @@ public class FriendLinkAdminApi {
      * @param size
      * @return
      */
-    @GetMapping("/list")
+    @PreAuthorize("@permission.admin()")
+    @GetMapping("/list/{page}/{size}")
     public ResponseResult listFriendLinks(@RequestParam("page") int page, @RequestParam("size") int size) {
-        return null;
+        return friendLinkService.listFriendLinks(page, size);
     }
 }
 

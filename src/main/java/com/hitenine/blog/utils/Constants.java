@@ -1,7 +1,6 @@
 package com.hitenine.blog.utils;
 
 /**
-  *
  * @author Hitenine
  */
 public interface Constants {
@@ -18,6 +17,17 @@ public interface Constants {
         String KEY_EMAIL_SEND_IP = "key_email_send_ip_";
         String KEY_EMAIL_SEND_ADDRESS = "key_email_send_address_";
         String KEY_TOKEN = "key_token_";
+    }
+
+    interface ImageType {
+        String PREFIX = "image/";
+        String TYPE_JPG = "jpg";
+        String TYPE_JPEG = "jpg";
+        String TYPE_PNG = "png";
+        String TYPE_GIF = "gif";
+        String TYPE_JPG_WITH_PREFIX = PREFIX + "jpeg";
+        String TYPE_PNG_WITH_PREFIX = PREFIX + "png";
+        String TYPE_GIF_WITH_PREFIX = PREFIX + "gif";
     }
 
     interface Setting {

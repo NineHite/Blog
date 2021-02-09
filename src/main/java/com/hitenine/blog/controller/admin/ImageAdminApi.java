@@ -1,9 +1,15 @@
 package com.hitenine.blog.controller.admin;
 
 
-import com.hitenine.blog.pojo.Image;
 import com.hitenine.blog.response.ResponseResult;
+import com.hitenine.blog.service.ImageService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 /**
  * <p>
@@ -17,15 +23,21 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/admin/image")
 public class ImageAdminApi {
 
+    @Autowired
+    private ImageService imageService;
+
     /**
-     * 添加图片
+     * 关于图片（文件）上传
+     * 一般来说，现在比较常用的是对象存储-->很简单，看文档
+     * 使用 nginx + fashDFS ==> fastDFS-->处理上传文件，nginx--> 负责处理文件访问
      *
-     * @param image
+     * @param file
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @PostMapping
-    public ResponseResult uploadImage(@RequestBody Image image) {
-        return null;
+    public ResponseResult uploadImage(@RequestParam("file") MultipartFile file) {
+        return imageService.uploadImage(file);
     }
 
     /**
@@ -34,22 +46,12 @@ public class ImageAdminApi {
      * @param imageId
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @DeleteMapping("/{imageId}")
     public ResponseResult deleteImage(@PathVariable("imageId") String imageId) {
-        return null;
+        return imageService.deleteImageById(imageId);
     }
 
-    /**
-     * 更新图片
-     *
-     * @param imageId
-     * @param image
-     * @return
-     */
-    @PutMapping("/{imageId}")
-    public ResponseResult updateImage(@PathVariable("imageId") String imageId, @RequestBody Image image) {
-        return null;
-    }
 
     /**
      * 获取图片
@@ -57,9 +59,14 @@ public class ImageAdminApi {
      * @param imageId
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @GetMapping("/{imageId}")
-    public ResponseResult getImage(@PathVariable("imageId") String imageId) {
-        return null;
+    public void getImage(HttpServletResponse response, @PathVariable("imageId") String imageId) {
+        try {
+            imageService.getImage(response, imageId);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -69,9 +76,10 @@ public class ImageAdminApi {
      * @param size
      * @return
      */
-    @GetMapping("/list")
-    public ResponseResult listImages(@RequestParam("page") int page, @RequestParam("size") int size) {
-        return null;
+    @PreAuthorize("@permission.admin()")
+    @GetMapping("/list/{page}/{size}")
+    public ResponseResult listImages(@PathVariable("page") int page, @PathVariable("size") int size) {
+        return imageService.listImages(page, size);
     }
 }
 
