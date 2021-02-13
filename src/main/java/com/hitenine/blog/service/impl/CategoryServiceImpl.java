@@ -97,6 +97,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
             categoryFromDb.setDescription(description);
         }
         categoryFromDb.setOrder(category.getOrder());
+        // categoryFromDb.setUpdateTime(LocalDateTime.now());
         // 3.保存数据
         categoryMapper.updateById(categoryFromDb);
         // 4.返回结果

@@ -113,6 +113,7 @@ public class FriendLinkServiceImpl extends ServiceImpl<FriendLinkMapper, FriendL
             friendLinkFromDb.setUrl(url);
         }
         friendLinkFromDb.setOrder(friendLink.getOrder());
+        // friendLinkFromDb.setUpdateTime(LocalDateTime.now());
         friendLinkMapper.updateById(friendLink);
         return ResponseResult.SUCCESS("友情链接修改成功");
     }

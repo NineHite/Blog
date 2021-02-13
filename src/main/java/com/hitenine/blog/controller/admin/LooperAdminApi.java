@@ -3,6 +3,9 @@ package com.hitenine.blog.controller.admin;
 
 import com.hitenine.blog.pojo.Looper;
 import com.hitenine.blog.response.ResponseResult;
+import com.hitenine.blog.service.LooperService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -17,15 +20,19 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/admin/looper")
 public class LooperAdminApi {
 
+    @Autowired
+    private LooperService looperService;
+
     /**
      * 添加轮播图
      *
      * @param looper
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @PostMapping
-    public ResponseResult uploadLooper(@RequestBody Looper looper) {
-        return null;
+    public ResponseResult addLooper(@RequestBody Looper looper) {
+        return looperService.addLooper(looper);
     }
 
     /**
@@ -34,9 +41,10 @@ public class LooperAdminApi {
      * @param looperId
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @DeleteMapping("/{looperId}")
     public ResponseResult deleteLooper(@PathVariable("looperId") String looperId) {
-        return null;
+        return looperService.deleteLooper(looperId);
     }
 
     /**
@@ -46,9 +54,10 @@ public class LooperAdminApi {
      * @param looper
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @PutMapping("/{looperId}")
     public ResponseResult updateLooper(@PathVariable("looperId") String looperId, @RequestBody Looper looper) {
-        return null;
+        return looperService.updateLooper(looperId, looper);
     }
 
     /**
@@ -57,9 +66,10 @@ public class LooperAdminApi {
      * @param looperId
      * @return
      */
+    @PreAuthorize("@permission.admin()")
     @GetMapping("/{looperId}")
     public ResponseResult getLooper(@PathVariable("looperId") String looperId) {
-        return null;
+        return looperService.getLooper(looperId);
     }
 
     /**
@@ -69,9 +79,10 @@ public class LooperAdminApi {
      * @param size
      * @return
      */
-    @GetMapping("/list")
-    public ResponseResult listLoopers(@RequestParam("page") int page, @RequestParam("size") int size) {
-        return null;
+    @PreAuthorize("@permission.admin()")
+    @GetMapping("/list/{page}/{size}")
+    public ResponseResult listLoopers(@PathVariable("page") int page, @PathVariable("size") int size) {
+        return looperService.listLoopers(page, size);
     }
 }
 

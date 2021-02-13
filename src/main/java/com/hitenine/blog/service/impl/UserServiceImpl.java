@@ -490,6 +490,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         // 签名，可以为空
         userFromDb.setSign(user.getSign());
+        // userFromDb.setUpdateTime(LocalDateTime.now());
         userMapper.updateById(userFromDb);
         // 删除redis里的token，下一次请求，需要解析token的就会根据refreshToken重新创建一个
         String tokenKey = CookieUtils.getCookie(getRequest(), Constants.User.COOKIE_TOKEN_KEY);

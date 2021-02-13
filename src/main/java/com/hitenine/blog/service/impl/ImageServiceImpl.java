@@ -171,6 +171,18 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         return type;
     }
 
+    private String getContentType(String name) {
+        String type = null;
+        if (name.endsWith(Constants.ImageType.TYPE_PNG)) {
+            type = Constants.ImageType.TYPE_PNG_WITH_PREFIX;
+        } else if (name.endsWith(Constants.ImageType.TYPE_JPG)) {
+            type = Constants.ImageType.TYPE_JPG_WITH_PREFIX;
+        } else if (name.endsWith(Constants.ImageType.TYPE_GIF)) {
+            type = Constants.ImageType.TYPE_GIF_WITH_PREFIX;
+        }
+        return type;
+    }
+
     @Override
     public void getImage(HttpServletResponse response, String imageId) throws IOException {
         // TODO:
@@ -197,7 +209,8 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         OutputStream writer = null;
         FileInputStream fis = null;
         try {
-            response.setContentType("image/png");
+            String contentType = getContentType(name);
+            response.setContentType(contentType);
             writer = response.getOutputStream();
             // 读取
             fis = new FileInputStream(file);

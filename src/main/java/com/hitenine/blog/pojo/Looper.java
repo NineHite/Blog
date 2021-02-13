@@ -1,5 +1,7 @@
 package com.hitenine.blog.pojo;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -33,12 +35,13 @@ public class Looper implements Serializable {
     /**
      * 顺序
      */
-    private Integer order;
+    @TableField("`order`")
+    private Integer order = 1;
 
     /**
      * 状态：0表示不可用，1表示正常
      */
-    private String state;
+    private String state = "1";
 
     /**
      * 目标URL
@@ -53,11 +56,13 @@ public class Looper implements Serializable {
     /**
      * 创建时间
      */
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
     /**
      * 更新时间
      */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
 }

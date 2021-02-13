@@ -36,7 +36,7 @@ public interface Constants {
 
     interface PageSize {
         int DEFAULT_PAGE = 1;
-        int MIN_SIZE = 10;
+        int MIN_SIZE = 1;
     }
 
     /**
